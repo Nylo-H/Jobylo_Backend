@@ -23,4 +23,5 @@ public interface JobService {
     void deleteJob(UUID jobId, User currentUser);
     JobOffer addImages(UUID jobId, User currentUser, List<String> imageUrls);
     JobOffer removeImage(UUID jobId, User currentUser, String imageUrl);
+    JobOffer expireJob(UUID jobId, User currentUser);
 }

@@ -12,13 +12,11 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
-import java.util.List;
+import java.security.Principal;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -30,8 +28,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic");
+        config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
+        config.setUserDestinationPrefix("/user");
     }
 
     @Override
@@ -63,13 +62,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             User user = userRepository.findByUsername(username).orElse(null);
 
                             if (user != null) {
-                                UsernamePasswordAuthenticationToken authentication =
-                                        new UsernamePasswordAuthenticationToken(
-                                                user,
-                                                null,
-                                                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
-                                        );
-                                accessor.setUser(authentication);
+                                Principal principal = () -> user.getId().toString();
+                                accessor.setUser(principal);
                             }
                         }
                     }

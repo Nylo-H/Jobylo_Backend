@@ -2,6 +2,6 @@ package com.example.TestAPI.exception;
 
 public class UserNotVerifiedException extends RuntimeException {
     public UserNotVerifiedException() {
-        super("Utilisateur Non Vérifé");
+        super("Utilisateur non vérifié");
     }
 }

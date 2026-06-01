@@ -41,8 +41,16 @@ public class ApplicationServiceImpl implements ApplicationService {
         JobOffer job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new BusinessException("Offre non trouvée", ErrorCode.NOT_FOUND));
 
+        if (job.getStatus() == JobStatus.EXPIRED) {
+            throw new BusinessException("Cette offre a expiré", ErrorCode.BAD_REQUEST);
+        }
+
         if (job.getStatus() != JobStatus.PENDING) {
             throw new BusinessException("Cette offre n'est plus disponible", ErrorCode.BAD_REQUEST);
+        }
+
+        if (job.getApplicationDeadline() != null && job.getApplicationDeadline().before(new Date())) {
+            throw new BusinessException("La date limite de candidature est dépassée", ErrorCode.BAD_REQUEST);
         }
 
         if (job.getCreator().getId().equals(worker.getId())) {

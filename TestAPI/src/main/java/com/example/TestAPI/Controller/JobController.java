@@ -161,6 +161,19 @@ public class JobController {
     }
 
     /**
+     * Expirer une annonce (seul le créateur peut expirer)
+     */
+    @PostMapping("/{jobId}/expire")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<JobResponse> expireJob(
+            @PathVariable UUID jobId,
+            @AuthenticationPrincipal User currentUser) {
+
+        JobOffer expiredJob = jobService.expireJob(jobId, currentUser);
+        return ResponseEntity.ok(jobMapper.toDTO(expiredJob));
+    }
+
+    /**
      * Uploader une image pour un job
      */
     @PostMapping(value = "/{jobId}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

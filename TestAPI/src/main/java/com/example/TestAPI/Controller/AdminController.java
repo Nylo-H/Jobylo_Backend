@@ -2,6 +2,7 @@ package com.example.TestAPI.Controller;
 
 import com.example.TestAPI.DTO.Admin.AdminStatsResponse;
 import com.example.TestAPI.DTO.Admin.CreateCategoryRequest;
+import com.example.TestAPI.DTO.Admin.FinanceStatsResponse;
 import com.example.TestAPI.DTO.Admin.UpdateKycRequest;
 import com.example.TestAPI.DTO.Admin.UpdateUserRoleRequest;
 import com.example.TestAPI.DTO.Audit.ActionLogResponse;
@@ -33,6 +34,11 @@ public class AdminController {
     @GetMapping("/stats")
     public ResponseEntity<AdminStatsResponse> getStats() {
         return ResponseEntity.ok(adminService.getStats());
+    }
+
+    @GetMapping("/finance")
+    public ResponseEntity<FinanceStatsResponse> getFinanceStats() {
+        return ResponseEntity.ok(adminService.getFinanceStats());
     }
 
     @GetMapping("/users")

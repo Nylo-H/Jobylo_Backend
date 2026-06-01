@@ -1,12 +1,14 @@
 package com.example.TestAPI.Security;
 
-import com.example.TestAPI.Model.Enum.Role;
+import com.example.TestAPI.DTO.Error.ErrorResponse;
 import com.example.TestAPI.Model.User;
 import com.example.TestAPI.Repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -44,12 +47,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         if (!jwtService.isTokenValid(token)) {
-            filterChain.doFilter(request, response);
+            sendError(response, 401, "Token invalide ou expiré", "UNAUTHORIZED", request.getRequestURI());
             return;
         }
 
         String username = jwtService.extractUsername(token);
-        User user = userRepository.findByUsername(username).orElseThrow();
+        User user = userRepository.findByUsername(username).orElse(null);
+
+        if (user == null) {
+            sendError(response, 401, "Utilisateur introuvable", "UNAUTHORIZED", request.getRequestURI());
+            return;
+        }
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
@@ -66,4 +74,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    private void sendError(HttpServletResponse response, int status, String message, String errorCode, String path) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        ErrorResponse error = new ErrorResponse(status, message, errorCode, LocalDateTime.now().toString(), path);
+        new ObjectMapper().writeValue(response.getWriter(), error);
+    }
 }

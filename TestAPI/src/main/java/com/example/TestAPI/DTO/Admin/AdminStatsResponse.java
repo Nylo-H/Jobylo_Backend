@@ -9,6 +9,7 @@ public record AdminStatsResponse(
         long jobsPending,
         long jobsInProgress,
         long jobsDone,
+        long jobsExpired,
         long transactionsHeld,
         long transactionsCompleted,
         long transactionsCancelled,

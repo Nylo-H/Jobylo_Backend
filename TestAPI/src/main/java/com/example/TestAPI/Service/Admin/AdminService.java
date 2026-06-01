@@ -2,6 +2,7 @@ package com.example.TestAPI.Service.Admin;
 
 import com.example.TestAPI.DTO.Admin.AdminStatsResponse;
 import com.example.TestAPI.DTO.Admin.CreateCategoryRequest;
+import com.example.TestAPI.DTO.Admin.FinanceStatsResponse;
 import com.example.TestAPI.DTO.Admin.UpdateKycRequest;
 import com.example.TestAPI.DTO.Admin.UpdateUserRoleRequest;
 import com.example.TestAPI.DTO.Audit.ActionLogResponse;
@@ -17,6 +18,8 @@ import java.util.UUID;
 public interface AdminService {
 
     AdminStatsResponse getStats();
+
+    FinanceStatsResponse getFinanceStats();
 
     List<UserResponse> getAllUsers();
 

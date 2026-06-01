@@ -14,6 +14,7 @@ public interface JobOfferRepository extends JpaRepository<JobOffer, UUID>, JpaSp
     List<JobOffer> findByCreatorId(UUID creatorId);
     List<JobOffer> findByCreatorOrderByCreatedAtDesc(User creator);
     List<JobOffer> findByWorkerOrderByCreatedAtDesc(User worker);
+    List<JobOffer> findByStatus(JobStatus status);
     List<JobOffer> findByStatusOrderByCreatedAtDesc(JobStatus status);
     List<JobOffer> findByStatusAndLocationContainingIgnoreCase(JobStatus status, String location);
 

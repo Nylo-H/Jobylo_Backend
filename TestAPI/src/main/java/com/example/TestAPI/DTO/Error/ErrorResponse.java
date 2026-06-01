@@ -1,13 +1,22 @@
 package com.example.TestAPI.DTO.Error;
 
-import lombok.Getter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
-@Getter
-public class ErrorResponse {
-    private String error;
+import java.time.LocalDateTime;
 
-    public ErrorResponse(String error) {
-        this.error = error;
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record ErrorResponse(
+        int status,
+        String error,
+        String errorCode,
+        String timestamp,
+        String path
+) {
+    public static ErrorResponse of(int status, String error, String errorCode) {
+        return new ErrorResponse(status, error, errorCode, LocalDateTime.now().toString(), null);
     }
 
+    public static ErrorResponse of(int status, String error, String errorCode, String path) {
+        return new ErrorResponse(status, error, errorCode, LocalDateTime.now().toString(), path);
+    }
 }

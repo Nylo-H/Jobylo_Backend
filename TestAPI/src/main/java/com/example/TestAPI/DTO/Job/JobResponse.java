@@ -20,5 +20,6 @@ public record JobResponse(
         Date updatedAt,
         List<String> images,
         UUID categoryId,
-        String categoryName
+        String categoryName,
+        Date applicationDeadline
 ) { }

@@ -1,9 +1,12 @@
 package com.example.TestAPI.DTO.Job;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,5 +24,9 @@ public record UpdateJobRequest(
 
         List<String> images,
 
-        UUID categoryId
+        UUID categoryId,
+
+        @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+        @Future(message = "La date limite doit être dans le futur")
+        Date applicationDeadline
 ) { }

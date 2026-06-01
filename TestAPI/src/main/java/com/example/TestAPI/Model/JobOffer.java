@@ -50,6 +50,9 @@ public class JobOffer {
     @Builder.Default
     private List<String> images = new ArrayList<>();
 
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date applicationDeadline;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private JobCategory category;

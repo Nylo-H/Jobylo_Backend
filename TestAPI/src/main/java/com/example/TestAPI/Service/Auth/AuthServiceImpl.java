@@ -25,9 +25,7 @@ import com.example.TestAPI.Service.RateLimiter.ForgotPasswordRateLimiter;
 import com.example.TestAPI.Service.Storage.FileStorageService;
 import com.example.TestAPI.exception.BusinessException;
 import com.example.TestAPI.exception.ErrorCode;
-import com.example.TestAPI.exception.InvalidPasswordException;
 import com.example.TestAPI.exception.UserAlreadyVerifiedException;
-import com.example.TestAPI.exception.UserNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,10 +81,10 @@ public class AuthServiceImpl implements AuthService {
 
         // Vérification des doublons
         if (userRepo.existsByUsername(request.username())) {
-            throw new RuntimeException("Nom d'utilisateur déjà utilisé");
+            throw new BusinessException("Nom d'utilisateur déjà utilisé", ErrorCode.CONFLICT);
         }
         if (userRepo.existsByEmail(request.email())) {
-            throw new RuntimeException("Email déjà utilisé");
+            throw new BusinessException("Email déjà utilisé", ErrorCode.CONFLICT);
         }
 
         // Création de l'utilisateur
@@ -115,11 +113,11 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public LoginResponse verifyOtp(String email, String code) {
         User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+                .orElseThrow(() -> new BusinessException("Utilisateur non trouvé", ErrorCode.NOT_FOUND));
 
         boolean success = otpService.verifyOtp(email, code);
         if (!success) {
-            throw new RuntimeException("OTP invalide ou expiré");
+            throw new BusinessException("OTP invalide ou expiré", ErrorCode.BAD_REQUEST);
         }
 
         String accesstoken = jwtService.generateToken(user.getUsername());
@@ -131,10 +129,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request)  {
         User user = userRepo.findByEmail(request.email())
-                .orElseThrow(UserNotFoundException::new);
+                .orElseThrow(() -> new BusinessException("Email ou mot de passe incorrect", ErrorCode.UNAUTHORIZED));
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new InvalidPasswordException();
+            throw new BusinessException("Email ou mot de passe incorrect", ErrorCode.UNAUTHORIZED);
         }
 
         if (!user.isVerified()) {
@@ -151,14 +149,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     public void resendOtp(String email) {
-        User user = userRepo.findByEmail(email)
-                .orElseThrow(UserNotFoundException::new);
-
-        if (user.isVerified()) {
-            throw new UserAlreadyVerifiedException();
-        }
-
-        otpService.generateAndSendOtp(user);
+        userRepo.findByEmail(email).ifPresent(user -> {
+            if (!user.isVerified()) {
+                otpService.generateAndSendOtp(user);
+            }
+        });
     }
 
     @Override

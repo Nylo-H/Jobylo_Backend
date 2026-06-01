@@ -6,6 +6,8 @@ import com.example.TestAPI.Model.Enum.KycStatus;
 import com.example.TestAPI.Model.User;
 import com.example.TestAPI.Service.Kyc.KYCService;
 import com.example.TestAPI.Service.Storage.FileStorageService;
+import com.example.TestAPI.exception.BusinessException;
+import com.example.TestAPI.exception.ErrorCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,7 +38,7 @@ public class KycController {
             @RequestParam("documentType") String documentType) {
 
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Fichier vide"));
+            throw new BusinessException("Fichier vide", ErrorCode.BAD_REQUEST);
         }
         String fileUrl = fileStorageService.store(file, "kyc");
 
@@ -51,8 +53,8 @@ public class KycController {
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody KycSubmissionRequest request) {
 
-        if (currentUser.getKycStatus() == com.example.TestAPI.Model.Enum.KycStatus.VERIFIED) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Votre identité est déjà vérifiée"));
+        if (currentUser.getKycStatus() == KycStatus.VERIFIED) {
+            throw new BusinessException("Votre identité est déjà vérifiée", ErrorCode.CONFLICT);
         }
 
         KycDocumentResponse response = kycService.submitKYC(currentUser, request);

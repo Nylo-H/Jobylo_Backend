@@ -89,11 +89,18 @@ public class MessageServiceImpl implements MessageService {
                 .build();
 
         message = messageRepository.save(message);
+
+        conversation.setLastMessageAt(new Date());
+        conversation.setLastMessageContent(content);
+        conversationRepository.save(conversation);
+
         auditService.log(sender, ActionType.START_CONVERSATION, "Conv: " + conversation.getId() + " Job: " + jobId);
 
         MessageResponse response = toMessageResponse(message);
 
         messagingTemplate.convertAndSend("/topic/messages/" + conversation.getId(), response);
+        messagingTemplate.convertAndSendToUser(sender.getId().toString(), "/queue/messages", response);
+        messagingTemplate.convertAndSendToUser(receiver.getId().toString(), "/queue/messages", response);
 
         long receiverUnread = messageRepository.countByConversationAndReceiverAndIsReadFalse(conversation, receiver);
         long senderUnread = messageRepository.countByConversationAndReceiverAndIsReadFalse(conversation, sender);
@@ -136,6 +143,8 @@ public class MessageServiceImpl implements MessageService {
         MessageResponse response = toMessageResponse(message);
 
         messagingTemplate.convertAndSend("/topic/messages/" + conversation.getId(), response);
+        messagingTemplate.convertAndSendToUser(sender.getId().toString(), "/queue/messages", response);
+        messagingTemplate.convertAndSendToUser(receiver.getId().toString(), "/queue/messages", response);
 
         long receiverUnread = messageRepository.countByConversationAndReceiverAndIsReadFalse(conversation, receiver);
         long senderUnread = messageRepository.countByConversationAndReceiverAndIsReadFalse(conversation, sender);

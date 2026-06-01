@@ -2,6 +2,8 @@ package com.example.TestAPI.Service.Admin;
 
 import com.example.TestAPI.DTO.Admin.AdminStatsResponse;
 import com.example.TestAPI.DTO.Admin.CreateCategoryRequest;
+import com.example.TestAPI.DTO.Admin.FinanceStatsResponse;
+import com.example.TestAPI.DTO.Admin.MonthlyRevenue;
 import com.example.TestAPI.DTO.Admin.UpdateKycRequest;
 import com.example.TestAPI.DTO.Admin.UpdateUserRoleRequest;
 import com.example.TestAPI.DTO.Audit.ActionLogResponse;
@@ -20,6 +22,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -52,12 +58,40 @@ public class AdminServiceImpl implements AdminService {
                 jobRepository.countByStatus(JobStatus.PENDING),
                 jobRepository.countByStatus(JobStatus.IN_PROGRESS),
                 jobRepository.countByStatus(JobStatus.DONE),
+                jobRepository.countByStatus(JobStatus.EXPIRED),
                 transactionRepository.countByStatus(PaymentStatus.HELD),
                 transactionRepository.countByStatus(PaymentStatus.COMPLETED),
                 transactionRepository.countByStatus(PaymentStatus.CANCELLED),
                 applicationRepository.count(),
                 applicationRepository.countByStatus(ApplicationStatus.PENDING),
                 actionLogRepository.count()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FinanceStatsResponse getFinanceStats() {
+        BigDecimal totalVolume    = transactionRepository.sumAmountByStatus(PaymentStatus.COMPLETED);
+        BigDecimal heldAmount     = transactionRepository.sumAmountByStatus(PaymentStatus.HELD);
+        BigDecimal totalCommission = transactionRepository.sumCommissionByStatus(PaymentStatus.COMPLETED);
+        BigDecimal totalPaid      = transactionRepository.sumNetByStatus(PaymentStatus.COMPLETED);
+        long completedCount       = transactionRepository.countByStatus(PaymentStatus.COMPLETED);
+        long heldCount            = transactionRepository.countByStatus(PaymentStatus.HELD);
+        long cancelledCount       = transactionRepository.countByStatus(PaymentStatus.CANCELLED);
+
+        BigDecimal avg = completedCount > 0
+                ? totalVolume.divide(BigDecimal.valueOf(completedCount), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        Date since = Date.from(LocalDateTime.now().minusMonths(12)
+                .atZone(ZoneId.systemDefault()).toInstant());
+        List<MonthlyRevenue> monthly = transactionRepository.sumRevenueByMonth(since);
+
+        return new FinanceStatsResponse(
+                totalVolume, heldAmount, totalCommission, totalPaid,
+                transactionRepository.count(),
+                completedCount, heldCount, cancelledCount,
+                avg, monthly
         );
     }
 

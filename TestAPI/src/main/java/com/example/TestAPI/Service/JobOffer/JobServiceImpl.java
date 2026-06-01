@@ -23,10 +23,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -67,6 +70,7 @@ public class JobServiceImpl implements JobService{
                 .updatedAt(new Date())
                 .images(request.images() != null ? new java.util.ArrayList<>(request.images()) : new java.util.ArrayList<>())
                 .category(category)
+                .applicationDeadline(request.applicationDeadline())
                 .build();
 
         job = jobRepository.save(job);
@@ -99,6 +103,10 @@ public class JobServiceImpl implements JobService{
             job.setCategory(category);
         }
 
+        if (request.applicationDeadline() != null) {
+            job.setApplicationDeadline(request.applicationDeadline());
+        }
+
         job.setUpdatedAt(new Date());
         job = jobRepository.save(job);
         auditService.log(currentUser, ActionType.UPDATE_JOB, "Job: " + jobId);
@@ -115,6 +123,9 @@ public class JobServiceImpl implements JobService{
             throw new BusinessException("Vous n'êtes pas autorisé à attribuer cette annonce", ErrorCode.FORBIDDEN);
         }
 
+        if (job.getStatus() == JobStatus.EXPIRED) {
+            throw new BusinessException("Cette annonce a expiré", ErrorCode.BAD_REQUEST);
+        }
         if (job.getStatus() != JobStatus.PENDING) {
             throw new BusinessException("Cette annonce n'est plus disponible", ErrorCode.BAD_REQUEST);
         }
@@ -199,6 +210,10 @@ public class JobServiceImpl implements JobService{
         Specification<JobOffer> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("status"), JobStatus.PENDING));
+            predicates.add(cb.or(
+                    cb.isNull(root.get("applicationDeadline")),
+                    cb.greaterThan(root.get("applicationDeadline"), new Date())
+            ));
 
             if (categoryId != null && !categoryId.isBlank()) {
                 predicates.add(cb.equal(root.get("category").get("id"), UUID.fromString(categoryId)));
@@ -294,6 +309,55 @@ public class JobServiceImpl implements JobService{
         return job;
     }
 
+    @Override
+    public JobOffer expireJob(UUID jobId, User currentUser) {
+        JobOffer job = getJobById(jobId);
+
+        if (!job.getCreator().getId().equals(currentUser.getId())) {
+            throw new BusinessException("Vous n'êtes pas autorisé à expirer cette annonce", ErrorCode.FORBIDDEN);
+        }
+
+        if (job.getStatus() != JobStatus.PENDING) {
+            throw new BusinessException("Seules les annonces en attente peuvent être expirées", ErrorCode.BAD_REQUEST);
+        }
+
+        job.setStatus(JobStatus.EXPIRED);
+        job.setUpdatedAt(new Date());
+        job = jobRepository.save(job);
+        auditService.log(currentUser, ActionType.EXPIRE_JOB, "Job: " + jobId);
+        return job;
+    }
+
+    /**
+     * Auto-expire les annonces PENDING dont la date limite est passée
+     * ou qui sont inactives depuis plus de 90 jours.
+     */
+    @Scheduled(cron = "0 0 2 * * ?") // tous les jours à 2h du matin
+    @Transactional
+    public void autoExpireJobs() {
+        Date now = new Date();
+        LocalDateTime ninetyDaysAgo = LocalDateTime.now().minusDays(90);
+        Date cutoff = Date.from(ninetyDaysAgo.atZone(ZoneId.systemDefault()).toInstant());
+
+        List<JobOffer> expiredJobs = jobRepository.findByStatus(JobStatus.PENDING).stream()
+                .filter(job -> {
+                    // Expiré si applicationDeadline dépassée
+                    if (job.getApplicationDeadline() != null && job.getApplicationDeadline().before(now)) {
+                        return true;
+                    }
+                    // Expiré si inactif depuis 90 jours
+                    return job.getCreatedAt().before(cutoff);
+                })
+                .toList();
+
+        for (JobOffer job : expiredJobs) {
+            job.setStatus(JobStatus.EXPIRED);
+            job.setUpdatedAt(now);
+            jobRepository.save(job);
+            auditService.log(job.getCreator(), ActionType.EXPIRE_JOB, "Auto-expire Job: " + job.getId());
+        }
+    }
+
     private void validateStatusTransition(JobStatus currentStatus, JobStatus newStatus, boolean isCreator, boolean isWorker) {
         if (isCreator && newStatus == JobStatus.DONE && currentStatus == JobStatus.IN_PROGRESS) {
             return;
@@ -302,6 +366,9 @@ public class JobServiceImpl implements JobService{
             return;
         }
         if (isCreator && newStatus == JobStatus.PENDING && currentStatus == JobStatus.PENDING) {
+            return;
+        }
+        if (isCreator && newStatus == JobStatus.EXPIRED && currentStatus == JobStatus.PENDING) {
             return;
         }
         throw new BusinessException("Transition de statut invalide", ErrorCode.BAD_REQUEST);
